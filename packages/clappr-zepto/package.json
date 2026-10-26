@@ -1,0 +1,26 @@
+{
+  "name": "@clappr/zepto",
+  "version": "2.1.5",
+  "private": true,
+  "description": "Permanent Zepto v1.2.0 fork used by Clappr for DOM utilities",
+  "main": "./dist/clappr-zepto.js",
+  "module": "./dist/clappr-zepto.esm.js",
+  "sideEffects": true,
+  "scripts": {
+    "build": "vite build",
+    "test": "vitest run",
+    "test:smoke": "vitest run src/dist.smoke.test.js",
+    "pretest:smoke": "vite build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/clappr/clappr.git",
+    "directory": "packages/clappr-zepto"
+  },
+  "author": "Clappr contributors (originally vendored by Thiago Pontes)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/clappr/clappr/issues"
+  },
+  "homepage": "https://github.com/clappr/clappr/tree/main/packages/clappr-zepto"
+}

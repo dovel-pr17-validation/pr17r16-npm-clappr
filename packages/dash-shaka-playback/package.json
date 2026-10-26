@@ -1,0 +1,52 @@
+{
+  "name": "dash-shaka-playback",
+  "version": "4.1.9",
+  "description": "clappr dash playback based on shaka player",
+  "main": "./dist/dash-shaka-playback.js",
+  "module": "./dist/dash-shaka-playback.esm.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/dash-shaka-playback.esm.mjs",
+      "require": "./dist/dash-shaka-playback.js",
+      "default": "./dist/dash-shaka-playback.js"
+    },
+    "./dist/*": "./dist/*",
+    "./src/*": "./src/*",
+    "./package.json": "./package.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clappr/clappr.git",
+    "directory": "packages/dash-shaka-playback"
+  },
+  "scripts": {
+    "start": "vite",
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "bundle-check": "ANALYZE_BUNDLE=true vite build",
+    "release": "rm -rf dist && vite build && vite build --mode minify",
+    "lint": "eslint --no-error-on-unmatched-pattern *.js ./src",
+    "lint:fix": "yarn lint -- --fix",
+    "test": "vitest run --coverage",
+    "test:smoke": "vitest run src/dist.smoke.test.js",
+    "test:watch": "vitest",
+    "prepublishOnly": "lerna run release --scope=dash-shaka-playback"
+  },
+  "files": [
+    "/dist",
+    "/src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "author": "Clappr team",
+  "license": "BSD-3-Clause",
+  "peerDependencies": {
+    "@clappr/core": "*",
+    "shaka-player": "^3 || ^4"
+  },
+  "devDependencies": {
+    "@clappr/core": "^0.18.0",
+    "shaka-player": "^5"
+  }
+}

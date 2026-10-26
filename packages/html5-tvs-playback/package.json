@@ -1,0 +1,55 @@
+{
+  "name": "@clappr/clappr-html5-tvs-playback",
+  "version": "0.4.17",
+  "description": "A Clappr HTML5 playback for smart TVs based on HbbTV 2.0.1 specs.",
+  "keywords": [
+    "clappr",
+    "smarttv",
+    "video",
+    "HTML5",
+    "HBBTV"
+  ],
+  "homepage": "https://github.com/clappr/clappr/tree/main/packages/html5-tvs-playback",
+  "bugs": {
+    "url": "https://github.com/clappr/clappr/issues",
+    "email": "player-web@g.globo"
+  },
+  "license": "BSD-3-Clause",
+  "author": {
+    "name": "Globo (digital hub)",
+    "email": "player-web@g.globo"
+  },
+  "files": [
+    "/dist",
+    "/src"
+  ],
+  "main": "./dist/clappr-html5-tvs-playback.js",
+  "module": "./dist/clappr-html5-tvs-playback.esm.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clappr/clappr.git",
+    "directory": "packages/html5-tvs-playback"
+  },
+  "scripts": {
+    "bundle-check": "ANALYZE_BUNDLE=true vite build",
+    "build": "vite build",
+    "release": "rm -rf dist && vite build && vite build --mode minify",
+    "prepublishOnly": "lerna run release --scope=@clappr/clappr-html5-tvs-playback",
+    "start": "vite",
+    "watch": "vite build --watch",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "test": "vitest run --coverage",
+    "test:smoke": "vitest run src/dist.smoke.test.js",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "@clappr/core": "*"
+  },
+  "devDependencies": {
+    "@clappr/core": "^0.18.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

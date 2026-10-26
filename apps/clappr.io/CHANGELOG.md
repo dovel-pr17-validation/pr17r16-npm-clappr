@@ -1,0 +1,56 @@
+# Change Log
+
+All notable changes to this project will be documented in this file.
+See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+
+# [1.2.0](https://github.com/clappr/clappr/compare/clappr-docs%401.1.3...clappr-docs%401.2.0) (2026-10-20)
+
+### Bug Fixes
+
+- **core:** keep a detached viewport in place on reset ([11cfd51](https://github.com/clappr/clappr/commit/11cfd512859c2b485342e5d1c9ad13ad02620b0e))
+- **core:** recover a viewport set before attach and on resize ([7ae4a7d](https://github.com/clappr/clappr/commit/7ae4a7dc4209f414abd602e2b30653fd0a644338))
+- **core:** refresh the rect of a pending viewport reset ([89484f1](https://github.com/clappr/clappr/commit/89484f147cd3bdec7248e984b93c1818655fa69e))
+- **core:** start an animated transform from the current px rect ([63c18e4](https://github.com/clappr/clappr/commit/63c18e45ef0c3b26e223e8941142fec5e7bf3e8b))
+- **core:** wait for every running viewport transition ([edc6f85](https://github.com/clappr/clappr/commit/edc6f853d99fc63ad178515df5d01aac7d26a32b))
+
+### Features
+
+- **core:** add an optional visual radius to the container viewport ([a73756d](https://github.com/clappr/clappr/commit/a73756d36b855d8cf2b681ca6a23651f370c5816))
+- **core:** default an omitted viewport useTransform to true ([d6e776b](https://github.com/clappr/clappr/commit/d6e776b29051755535c5405960ee4870eedaef80))
+- **core:** pin the viewport origin before the first scale animation ([d251091](https://github.com/clappr/clappr/commit/d25109175ccf2e6070333fd36b41f5fc2b301f53))
+
+## [1.1.3](https://github.com/clappr/clappr/compare/clappr-docs%401.1.2...clappr-docs%401.1.3) (2026-08-15)
+
+**Note:** Version bump only for package clappr-docs
+
+## [1.1.2](https://github.com/clappr/clappr/compare/clappr-docs%401.1.1...clappr-docs%401.1.2) (2026-08-05)
+
+### Bug Fixes
+
+- **clappr-docs:** repoint broken documentation links ([ac08d8f](https://github.com/clappr/clappr/commit/ac08d8ff5c32d49912394fcb910dd49cc98dd892))
+
+## [1.1.1](https://github.com/clappr/clappr/compare/clappr-docs@1.1.0...clappr-docs@1.1.1) (2026-07-31)
+
+**Note:** Version bump only for package clappr-docs
+
+# [1.1.0](https://github.com/clappr/clappr/compare/clappr-docs@1.0.4...clappr-docs@1.1.0) (2026-07-29)
+
+### Features
+
+- add website cross-linking and fix documentation ([99f6be7](https://github.com/clappr/clappr/commit/99f6be70cbc7b7ee2b9ce1432b32a75ab461fb0a))
+
+## [1.0.4](https://github.com/clappr/clappr/compare/clappr-docs@1.0.3...clappr-docs@1.0.4) (2025-10-15)
+
+**Note:** Version bump only for package clappr-docs
+
+## [1.0.3](https://github.com/clappr/clappr/compare/clappr-docs@1.0.2...clappr-docs@1.0.3) (2025-10-10)
+
+**Note:** Version bump only for package clappr-docs
+
+## [1.0.2](https://github.com/clappr/clappr/compare/clappr-docs@1.0.1...clappr-docs@1.0.2) (2025-10-06)
+
+**Note:** Version bump only for package clappr-docs
+
+## [1.0.1](https://github.com/clappr/clappr/compare/clappr-docs@1.0.0...clappr-docs@1.0.1) (2024-10-30)
+
+**Note:** Version bump only for package clappr-docs

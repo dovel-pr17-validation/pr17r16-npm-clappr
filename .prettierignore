@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Permanent Zepto fork — do not reformat
+packages/clappr-zepto/src/zepto.js
+
+# Build outputs
+dist/
+build/
+public/
+
+# Package files
+*.min.js
+*.min.css
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+
+# Cache
+.cache/
+
+# Lerna
+lerna-debug.log*
+
+# Temporary files
+*.tmp
+*.temp

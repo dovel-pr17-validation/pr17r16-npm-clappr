@@ -1,0 +1,155 @@
+import { Events, Log } from '@clappr/core'
+import { TELEMETRY_CONTRACT_VERSION } from './constants'
+
+const MS_PER_SECOND = 1000
+const BITS_PER_BYTE = 8
+const BITS_PER_MEGABIT = 1e6
+const THROUGHPUT_DECIMAL_PLACES = 2
+
+export const round1 = v => v != null ? Math.round(v * 10) / 10 : null
+export const round4 = v => Math.round(v * 10000) / 10000
+const round2 = v => Math.round(v * 100) / 100
+
+/**
+ * Creates a telemetry envelope with monotonic and wall-clock timestamps.
+ *
+ * @param {string} type  - Canonical event type (e.g. "media.event")
+ * @param {object} data  - Event-specific payload
+ * @param {string} source - Name of the plugin that emitted the event
+ * @returns {object} Telemetry envelope
+ */
+export const createEnvelope = (type, data, source) => ({
+  type,
+  t: performance.now(),
+  ts: Date.now(),
+  source,
+  data,
+  v: TELEMETRY_CONTRACT_VERSION
+})
+
+/**
+ * Emits a telemetry event on the given emitter (container or plugin).
+ *
+ * Uses the canonical CONTAINER_TELEMETRY_TRACE channel so consumers only need
+ * to listen to a single event name.
+ *
+ * @param {object} emitter - Object with a `trigger` method (container, plugin)
+ * @param {string} type    - Canonical event type
+ * @param {object} data    - Event-specific payload
+ * @param {string} source  - Plugin name that originated the event
+ */
+export const emitTelemetry = (emitter, type, data, source) => {
+  const envelope = createEnvelope(type, data, source)
+  try {
+    emitter.trigger(Events.Custom.CONTAINER_TELEMETRY_TRACE, envelope)
+  } catch (err) {
+    Log.warn('[telemetry]', 'emit failed', err)
+  }
+}
+
+/**
+ * Sanitizes a DRM license server URI for telemetry.
+ * Strips query param values to avoid leaking credentials or device identifiers.
+ *
+ * @param {string|null} uri - License server URL
+ * @returns {{ licenseServerOrigin: string|null, licenseServerParams: string[] }}
+ */
+export const sanitizeLicenseUri = (uri) => {
+  if (!uri) return { licenseServerOrigin: null, licenseServerParams: [] }
+  try {
+    const url = new URL(uri)
+    return {
+      licenseServerOrigin: url.origin,
+      licenseServerParams: [...url.searchParams.keys()]
+    }
+  } catch {
+    return { licenseServerOrigin: null, licenseServerParams: [] }
+  }
+}
+
+/**
+ * Hashes a URL string to a compact hex string using FNV-1a (32-bit).
+ * Used to avoid sending raw URLs in telemetry payloads.
+ *
+ * @param {string} url
+ * @returns {string} 8-character hex hash
+ */
+export const hashUrl = url => {
+  let h = 0x811c9dc5
+  for (let i = 0; i < url.length; i++) {
+    h ^= url.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h.toString(16).padStart(8, '0')
+}
+
+/**
+ * Returns how many seconds of video are buffered ahead of the current playback position.
+ *
+ * @param {HTMLVideoElement} videoEl
+ * @returns {number} Seconds buffered ahead (0 if currentTime is outside all ranges)
+ */
+export const getBufferAhead = (videoEl) => {
+  const { buffered, currentTime } = videoEl
+  for (let i = 0; i < buffered.length; i++) {
+    if (currentTime >= buffered.start(i) && currentTime <= buffered.end(i)) {
+      return buffered.end(i) - currentTime
+    }
+  }
+  return 0
+}
+
+/**
+ * Converts a TimeRanges object into a compact array of [start, end] pairs.
+ * Values are rounded to 2 decimal places.
+ *
+ * @param {TimeRanges} buffered
+ * @returns {Array<[number, number]>}
+ */
+export const getBufferedRanges = (buffered) => {
+  const ranges = []
+  for (let i = 0; i < buffered.length; i++) {
+    ranges.push([round2(buffered.start(i)), round2(buffered.end(i))])
+  }
+  return ranges
+}
+
+/**
+ * Calculates network throughput in Mbps.
+ *
+ * Formula: (bytes × 8 bits/byte) / (duration in seconds) / 1,000,000 bits/Mbps
+ *
+ * @param {number} bytes - Response data size in bytes
+ * @param {number} durationMs - Request duration in milliseconds
+ * @returns {number} Throughput in Mbps (0 if duration is invalid)
+ */
+export const parseVideoCodec = (codec) => {
+  if (!codec) return null
+  if (/^avc/.test(codec)) return 'H.264'
+  if (/^hvc1|^hev1/.test(codec)) return 'H.265'
+  if (/^av01/.test(codec)) return 'AV1'
+  if (/^vp09/.test(codec)) return 'VP9'
+  if (/^vp8/.test(codec)) return 'VP8'
+  return codec
+}
+
+export const parseAudioCodec = (codec) => {
+  if (!codec) return null
+  if (/^mp4a\.40/.test(codec)) return 'AAC'
+  if (codec === 'ac-3') return 'AC3'
+  if (codec === 'ec-3') return 'DD+'
+  if (codec === 'opus') return 'Opus'
+  if (codec === 'flac') return 'FLAC'
+  return codec
+}
+
+export const calculateThroughput = (bytes, durationMs) => {
+  if (durationMs <= 0) return 0
+
+  const durationSeconds = durationMs / MS_PER_SECOND
+  const bits = bytes * BITS_PER_BYTE
+  const throughput = bits / durationSeconds / BITS_PER_MEGABIT
+  const factor = 10 ** THROUGHPUT_DECIMAL_PLACES
+
+  return Math.round(throughput * factor) / factor
+}

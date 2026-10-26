@@ -1,0 +1,9 @@
+# Monorepo ES5 floor (not just html5-tvs-playback): published dist/ is subclassed by
+# ES5 third-party plugins. Do NOT add `not dead` — it drops bb 7/10 and ie_mob 10/11,
+# the only targets that keep preset-env lowering `class` (see #2540).
+# `not ie <= 11` still leaves ie_mob 10/11 in the set; those (with bb 7/10) are the
+# class-less targets. The floor is implicit on caniuse-lite share data — smoke guards
+# in test/dist-contract.js catch drift after yarn build:dist.
+> 0.5%
+last 2 versions
+not ie <= 11

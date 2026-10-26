@@ -1,0 +1,283 @@
+import { Events } from '@clappr/core'
+import PlaybackTimingSampler from './playback_timing_sampler'
+import { EVENT_TYPES } from '../utils/constants'
+
+beforeAll(() => {
+  Events.register('CONTAINER_TELEMETRY_TRACE')
+})
+
+const makePlayback = () => {
+  const listeners = {}
+  return {
+    on: vi.fn((event, handler) => { listeners[event] = handler }),
+    off: vi.fn(),
+    _emit: (event, data) => listeners[event]?.(data)
+  }
+}
+
+const makeContainer = () => ({
+  on: vi.fn(),
+  off: vi.fn()
+})
+
+describe('PlaybackTimingSampler', () => {
+  let sampler
+  let playback
+  let container
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    playback = makePlayback()
+    container = makeContainer()
+    sampler = new PlaybackTimingSampler(playback, container)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  describe('constructor', () => {
+    it('registers listeners on playback for all required events', () => {
+      expect(playback.on).toHaveBeenCalledWith(Events.PLAYBACK_PLAY_INTENT, expect.any(Function))
+      expect(playback.on).toHaveBeenCalledWith(Events.PLAYBACK_PLAY, expect.any(Function))
+      expect(playback.on).toHaveBeenCalledWith(Events.PLAYBACK_BUFFERING, expect.any(Function))
+      expect(playback.on).toHaveBeenCalledWith(Events.PLAYBACK_PAUSE, expect.any(Function))
+      expect(playback.on).toHaveBeenCalledWith(Events.PLAYBACK_ENDED, expect.any(Function))
+      expect(playback.on).toHaveBeenCalledWith(Events.PLAYBACK_STOP, expect.any(Function))
+    })
+
+    it('does not throw when playback is null', () => {
+      expect(() => new PlaybackTimingSampler(null, null)).not.toThrow()
+    })
+  })
+
+  describe('timePlayingMs', () => {
+    it('accumulates while playing', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(100)
+      expect(sampler.collect().timePlayingMs).toBe(100)
+    })
+
+    it('stops accumulating on pause', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(100)
+      playback._emit(Events.PLAYBACK_PAUSE)
+      vi.advanceTimersByTime(200)
+      expect(sampler.collect().timePlayingMs).toBe(100)
+    })
+
+    it('stops accumulating on ended', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(100)
+      playback._emit(Events.PLAYBACK_ENDED)
+      vi.advanceTimersByTime(200)
+      expect(sampler.collect().timePlayingMs).toBe(100)
+    })
+
+    it('stops accumulating during buffering', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(100)
+      playback._emit(Events.PLAYBACK_BUFFERING)
+      vi.advanceTimersByTime(50)
+      expect(sampler.collect().timePlayingMs).toBe(100)
+    })
+
+    it('resumes after buffering', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(100)
+      playback._emit(Events.PLAYBACK_BUFFERING)
+      vi.advanceTimersByTime(50)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(200)
+      expect(sampler.collect().timePlayingMs).toBe(300)
+    })
+  })
+
+  describe('timeWaitingMs', () => {
+    it('accumulates during buffering', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(100)
+      playback._emit(Events.PLAYBACK_BUFFERING)
+      vi.advanceTimersByTime(50)
+      expect(sampler.collect().timeWaitingMs).toBe(50)
+    })
+
+    it('does not accumulate during pause', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      playback._emit(Events.PLAYBACK_PAUSE)
+      vi.advanceTimersByTime(200)
+      expect(sampler.collect().timeWaitingMs).toBe(0)
+    })
+  })
+
+  describe('joinTimeMs', () => {
+    it('is the interval between PLAY_INTENT and first PLAY', () => {
+      vi.setSystemTime(100)
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      vi.setSystemTime(350)
+      playback._emit(Events.PLAYBACK_PLAY)
+      expect(sampler.collect().joinTimeMs).toBe(250)
+    })
+
+    it('does not change on subsequent PLAY events', () => {
+      vi.setSystemTime(100)
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      vi.setSystemTime(200)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.setSystemTime(500)
+      playback._emit(Events.PLAYBACK_BUFFERING)
+      playback._emit(Events.PLAYBACK_PLAY)
+      expect(sampler.collect().joinTimeMs).toBe(100)
+    })
+
+    it('is null when PLAY fires without a prior PLAY_INTENT', () => {
+      playback._emit(Events.PLAYBACK_PLAY)
+      expect(sampler.collect().joinTimeMs).toBeNull()
+    })
+
+    it('is null before any event', () => {
+      expect(sampler.collect().joinTimeMs).toBeNull()
+    })
+  })
+
+  describe('manifestLoadTimeMs', () => {
+    it('is null before any REQUEST_END event', () => {
+      expect(sampler.collect().manifestLoadTimeMs).toBeNull()
+    })
+
+    it('captures duration from first REQUEST_END with kind=manifest', () => {
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'manifest', durationMs: 320 } })
+      expect(sampler.collect().manifestLoadTimeMs).toBe(320)
+    })
+
+    it('is not overwritten by subsequent manifest events', () => {
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'manifest', durationMs: 320 } })
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'manifest', durationMs: 999 } })
+      expect(sampler.collect().manifestLoadTimeMs).toBe(320)
+    })
+
+    it('ignores REQUEST_END with durationMs=null', () => {
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'manifest', durationMs: null } })
+      expect(sampler.collect().manifestLoadTimeMs).toBeNull()
+    })
+  })
+
+  describe('firstSegmentLoadTimeMs', () => {
+    it('is null before any REQUEST_END event', () => {
+      expect(sampler.collect().firstSegmentLoadTimeMs).toBeNull()
+    })
+
+    it('captures duration from first REQUEST_END with kind=segment', () => {
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'segment', durationMs: 180 } })
+      expect(sampler.collect().firstSegmentLoadTimeMs).toBe(180)
+    })
+
+    it('is not overwritten by subsequent segment events', () => {
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'segment', durationMs: 180 } })
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'segment', durationMs: 999 } })
+      expect(sampler.collect().firstSegmentLoadTimeMs).toBe(180)
+    })
+
+    it('ignores REQUEST_END with durationMs=null', () => {
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'segment', durationMs: null } })
+      expect(sampler.collect().firstSegmentLoadTimeMs).toBeNull()
+    })
+
+    it('does not interfere with manifestLoadTimeMs', () => {
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'manifest', durationMs: 320 } })
+      sampler._onTrace({ type: EVENT_TYPES.REQUEST_END, data: { kind: 'segment', durationMs: 180 } })
+      expect(sampler.collect().manifestLoadTimeMs).toBe(320)
+      expect(sampler.collect().firstSegmentLoadTimeMs).toBe(180)
+    })
+  })
+
+  describe('autoplayStartupTimeMs', () => {
+    it('is null when there was a PLAY_INTENT', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      expect(sampler.collect().autoplayStartupTimeMs).toBeNull()
+    })
+
+    it('equals time since session start when there was no PLAY_INTENT', () => {
+      vi.setSystemTime(0)
+      sampler = new PlaybackTimingSampler(playback, container)
+      vi.setSystemTime(2000)
+      playback._emit(Events.PLAYBACK_PLAY)
+      expect(sampler.collect().autoplayStartupTimeMs).toBe(2000)
+    })
+
+    it('is null before first PLAY fires', () => {
+      expect(sampler.collect().autoplayStartupTimeMs).toBeNull()
+    })
+  })
+
+  describe('collect() live', () => {
+    it('includes current state time without requiring a new event', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(150)
+      expect(sampler.collect().timePlayingMs).toBe(150)
+      vi.advanceTimersByTime(50)
+      expect(sampler.collect().timePlayingMs).toBe(200)
+    })
+
+    it('returns null after destroy', () => {
+      sampler.destroy()
+      expect(sampler.collect()).toBeNull()
+    })
+  })
+
+  describe('full sequence: idle → playing(100ms) → waiting(50ms) → playing(200ms)', () => {
+    it('accumulates correctly', () => {
+      playback._emit(Events.PLAYBACK_PLAY_INTENT)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(100)
+      playback._emit(Events.PLAYBACK_BUFFERING)
+      vi.advanceTimersByTime(50)
+      playback._emit(Events.PLAYBACK_PLAY)
+      vi.advanceTimersByTime(200)
+
+      const result = sampler.collect()
+      expect(result.timePlayingMs).toBe(300)
+      expect(result.timeWaitingMs).toBe(50)
+    })
+  })
+
+  describe('destroy()', () => {
+    it('unregisters all events from playback', () => {
+      sampler.destroy()
+      expect(playback.off).toHaveBeenCalledWith(Events.PLAYBACK_PLAY_INTENT, expect.any(Function))
+      expect(playback.off).toHaveBeenCalledWith(Events.PLAYBACK_PLAY, expect.any(Function))
+      expect(playback.off).toHaveBeenCalledWith(Events.PLAYBACK_BUFFERING, expect.any(Function))
+      expect(playback.off).toHaveBeenCalledWith(Events.PLAYBACK_PAUSE, expect.any(Function))
+      expect(playback.off).toHaveBeenCalledWith(Events.PLAYBACK_ENDED, expect.any(Function))
+      expect(playback.off).toHaveBeenCalledWith(Events.PLAYBACK_STOP, expect.any(Function))
+    })
+
+    it('unregisters listener on CONTAINER_TELEMETRY_TRACE', () => {
+      sampler.destroy()
+      expect(container.off).toHaveBeenCalledWith(
+        Events.Custom.CONTAINER_TELEMETRY_TRACE,
+        expect.any(Function)
+      )
+    })
+
+    it('ignores events after destroy', () => {
+      sampler.destroy()
+      playback._emit(Events.PLAYBACK_PLAY)
+      expect(sampler.collect()).toBeNull()
+    })
+
+    it('is idempotent', () => {
+      expect(() => { sampler.destroy(); sampler.destroy() }).not.toThrow()
+    })
+  })
+})

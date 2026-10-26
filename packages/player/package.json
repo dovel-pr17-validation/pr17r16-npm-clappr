@@ -1,0 +1,56 @@
+{
+  "name": "@clappr/player",
+  "version": "0.14.8",
+  "description": "An extensible media player for the web",
+  "main": "dist/clappr.js",
+  "scripts": {
+    "build": "vite build && vite build --config vite.plainhtml5.config.mjs",
+    "bundle-check": "ANALYZE_BUNDLE=true vite build",
+    "lint": "eslint --no-error-on-unmatched-pattern *.js src/",
+    "lint:fix": "npm run lint -- --fix",
+    "release": "rm -rf dist && vite build && vite build --config vite.plainhtml5.config.mjs && vite build --mode minify && vite build --config vite.plainhtml5.config.mjs --mode minify",
+    "start": "vite",
+    "test": "echo 'No tests configured. This project is only for bundling the player components.'",
+    "test:smoke": "vitest run src/dist.smoke.test.js",
+    "watch": "vite build --watch",
+    "prepublishOnly": "lerna run release --scope=@clappr/player"
+  },
+  "files": [
+    "/dist",
+    "/src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clappr/clappr.git",
+    "directory": "packages/player"
+  },
+  "author": "Globo.com",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/clappr/clappr/issues"
+  },
+  "homepage": "https://github.com/clappr/clappr",
+  "devDependencies": {
+    "@clappr/core": "^0.18.0",
+    "@clappr/hlsjs-playback": "^3.1.3",
+    "@clappr/plugins": "^0.9.17",
+    "hls.js": "^1"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "dependsOn": [
+          "^build"
+        ]
+      },
+      "release": {
+        "dependsOn": [
+          "^release"
+        ]
+      }
+    }
+  }
+}

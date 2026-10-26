@@ -1,0 +1,34 @@
+node_modules
+.DS_Store
+.env
+.docusaurus
+coverage
+build/
+dist/
+src/base/jst.js
+*.cache
+aws.json
+npm-debug.log
+yarn-error.log
+package-lock.json
+.nx/
+
+# Generated documentation and types in packages
+packages/**/docs/
+packages/**/types/
+
+# bump
+*.bkp
+
+# Vim
+*~
+*.swp
+*.swo
+
+# PhpStorm
+.idea
+
+# Local, machine-specific agent instructions (not shared with the team)
+.agents/*.local.*
+.claude/*.local.*
+

@@ -1,0 +1,295 @@
+import Player from '../player/player'
+import Events from '../../base/events/events'
+
+describe('Player', function () {
+  describe('constructor', () => {
+    test('has unique sequential id', () => {
+      const player1 = new Player({ source: '/playlist.m3u8', baseUrl: 'http://cdn.clappr.io/latest' })
+      const player2 = new Player({ source: '/playlist.m3u8', baseUrl: 'http://cdn.clappr.io/latest' })
+      const player3 = new Player({ source: '/playlist.m3u8', baseUrl: 'http://cdn.clappr.io/latest' })
+
+      const p1Id = parseInt(player1.options.playerId)
+      const p2Id = parseInt(player2.options.playerId)
+      const p3Id = parseInt(player3.options.playerId)
+
+      expect(p2Id).toBeGreaterThan(p1Id)
+      expect(p3Id).toBeGreaterThan(p2Id)
+    })
+
+    test('uses the baseUrl passed from initialization', () => {
+      const player = new Player({ source: '/playlist.m3u8', baseUrl: 'http://cdn.clappr.io/latest' })
+      expect(player.options.baseUrl).toEqual('http://cdn.clappr.io/latest')
+    })
+
+    test('persists config by default', () => {
+      const player = new Player({ source: '/playlist.m3u8' })
+      expect(player.options.persistConfig).toEqual(true)
+    })
+
+    test('can set persists config', () => {
+      const player = new Player({ source: '/playlist.m3u8', persistConfig: false })
+      expect(player.options.persistConfig).toEqual(false)
+    })
+
+    test('gets plugins by name', () => {
+      const player = new Player({ source: '/playlist.m3u8', persistConfig: false })
+      const plugin = { name: 'fake' }
+      player.core = { plugins: [plugin], activeContainer: { plugins: [] } }
+      expect(plugin).toEqual(player.getPlugin('fake'))
+    })
+
+    test('should normalize sources', () => {
+      const player = new Player({ source: '/playlist.m3u8', persistConfig: false })
+      let normalizedSources = player._normalizeSources({ sources: ['http://test.mp4'] })
+      expect(normalizedSources.length).toEqual(1)
+      expect(normalizedSources[0]).toEqual('http://test.mp4')
+
+      normalizedSources = player._normalizeSources({ source: 'http://test.mp4' })
+      expect(normalizedSources.length).toEqual(1)
+      expect(normalizedSources[0]).toEqual('http://test.mp4')
+
+      normalizedSources = player._normalizeSources({ sources: [] })
+      expect(normalizedSources.length).toEqual(1)
+      expect(JSON.stringify(normalizedSources[0])).toEqual(JSON.stringify({ source: '', mimeType: '' }))
+    })
+
+    test('should trigger error events', () => {
+      const player = new Player({ source: 'http://video.mp4', persistConfig: false })
+      const element = document.createElement('div')
+      const onError = vi.fn()
+      player.on(Events.PLAYER_ERROR, onError)
+      player.attachTo(element)
+      player.trigger(Events.PLAYER_ERROR)
+      expect(onError).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('register options event listeners', () => {
+    let player
+    beforeEach(() => {
+      player = new Player({ source: '/video.mp4' })
+      const element = document.createElement('div')
+      player.attachTo(element)
+      vi.spyOn(player, '_registerOptionEventListeners')
+    })
+
+    test('should register on configure', () => {
+      player.configure({
+        events: {
+          onPlay: () => {}
+        }
+      })
+
+      expect(player._registerOptionEventListeners).toHaveBeenCalledTimes(1)
+    })
+
+    test('should call only last registered callback', () => {
+      const callbacks = {
+        callbackA: vi.fn(),
+        callbackB: vi.fn()
+      }
+      player.configure({
+        events: {
+          onPlay: callbacks.callbackA
+        }
+      })
+
+      player.configure({
+        events: {
+          onPlay: callbacks.callbackB
+        }
+      })
+
+      player._onPlay()
+
+      expect(callbacks.callbackA).not.toHaveBeenCalled()
+      expect(callbacks.callbackB).toHaveBeenCalledTimes(1)
+    })
+
+    test('should add a new event callback', () => {
+      const callbacks = {
+        callbackC: vi.fn()
+      }
+      player.configure({
+        events: {}
+      })
+
+      player.configure({
+        events: {
+          onPause: callbacks.callbackC
+        }
+      })
+
+      player._onPause()
+
+      expect(callbacks.callbackC).toHaveBeenCalledTimes(1)
+    })
+
+    test('should remove previous event callbacks', () => {
+      const callbacks = {
+        callbackA: vi.fn(),
+        callbackB: vi.fn()
+      }
+      player.configure({
+        events: {
+          onPlay: callbacks.callbackA
+        }
+      })
+
+      player.configure({
+        events: {
+          onPause: callbacks.callbackB
+        }
+      })
+
+      player._onPlay()
+      player._onPause()
+
+      expect(callbacks.callbackA).not.toHaveBeenCalled()
+      expect(callbacks.callbackB).toHaveBeenCalledTimes(1)
+    })
+
+    test('does not override events on configure if there are no events', () => {
+      const callbacks = {
+        callbackA: vi.fn()
+      }
+      player.configure({
+        events: {
+          onPause: callbacks.callbackA
+        }
+      })
+
+      player.configure({
+        someOtherOption: true
+      })
+
+      player._onPause()
+
+      expect(callbacks.callbackA).toHaveBeenCalledTimes(1)
+    })
+
+    test('does not interfere with event listeners added through Player.on', () => {
+      const callbacks = {
+        callbackA: vi.fn(),
+        callbackB: vi.fn()
+      }
+
+      player.on(Events.PLAYER_PAUSE, callbacks.callbackB)
+
+      player.configure({
+        events: {
+          onPause: callbacks.callbackA
+        }
+      })
+
+      player._onPause()
+
+      expect(callbacks.callbackA).toHaveBeenCalledTimes(1)
+      expect(callbacks.callbackB).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('when a core event is fired', () => {
+    let onResizeSpy, player
+
+    beforeEach(() => {
+      onResizeSpy = vi.fn()
+
+      player = new Player({
+        source: 'http://video.mp4',
+        events: {
+          onResize: onResizeSpy
+        }
+      })
+
+      const element = document.createElement('div')
+      player.attachTo(element)
+    })
+
+    describe('on Events.CORE_RESIZE', () => {
+      test('calls onResize callback with width and height', () => {
+        const newSize = { width: '50%', height: '50%' }
+        player.core.trigger(Events.CORE_RESIZE, newSize)
+        expect(onResizeSpy).toHaveBeenCalledWith(newSize)
+      })
+    })
+  })
+
+  describe('queries', () => {
+    test('returns empty values when constructed without a parent', () => {
+      const player = new Player({ source: '/video.mp4' })
+
+      expect(player.isPlaying()).toBe(false)
+      expect(player.ended).toBe(false)
+      expect(player.getCurrentTime()).toBe(0)
+      expect(player.getPlugin('missing')).toBeUndefined()
+    })
+
+    test('gets plugins from core when there is no activeContainer', () => {
+      const player = new Player({ source: '/video.mp4' })
+      const plugin = { name: 'fake' }
+      player.core = { plugins: [plugin] }
+
+      expect(player.isPlaying()).toBe(false)
+      expect(player.getPlugin('fake')).toEqual(plugin)
+    })
+
+    test('delegates isPlaying to the active container', () => {
+      const player = new Player({ source: '/video.mp4' })
+      player.core = { activeContainer: { isPlaying: () => true } }
+
+      expect(player.isPlaying()).toBe(true)
+    })
+  })
+
+  describe('destroy', () => {
+    let player
+    let callbacks
+
+    beforeEach(() => {
+      callbacks = {
+        onPlay: vi.fn(),
+        onPause: vi.fn(),
+        onError: vi.fn()
+      }
+      player = new Player({
+        source: '/video.mp4',
+        events: callbacks
+      })
+      const element = document.createElement('div')
+      player.attachTo(element)
+    })
+
+    test('should remove event listeners registered via options.events', () => {
+      player.destroy()
+      player.trigger(Events.PLAYER_PLAY)
+      player.trigger(Events.PLAYER_PAUSE)
+      player.trigger(Events.PLAYER_ERROR)
+
+      expect(callbacks.onPlay).not.toHaveBeenCalled()
+      expect(callbacks.onPause).not.toHaveBeenCalled()
+      expect(callbacks.onError).not.toHaveBeenCalled()
+    })
+
+    test('should handle destroy when no options.events are present', () => {
+      const playerWithoutEvents = new Player({ source: '/video.mp4' })
+      const element = document.createElement('div')
+      playerWithoutEvents.attachTo(element)
+
+      expect(() => playerWithoutEvents.destroy()).not.toThrow()
+    })
+
+    test('should remove listeners added through configure', () => {
+      const configureCallback = vi.fn()
+      player.configure({
+        events: {
+          onStop: configureCallback
+        }
+      })
+      player.destroy()
+      player.trigger(Events.PLAYER_STOP)
+
+      expect(configureCallback).not.toHaveBeenCalled()
+    })
+  })
+})

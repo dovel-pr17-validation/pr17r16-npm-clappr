@@ -1,0 +1,5 @@
+@use 'reset';
+
+[data-player] {
+  @include reset.nested-reset;
+}

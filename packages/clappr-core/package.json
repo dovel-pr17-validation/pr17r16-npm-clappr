@@ -1,0 +1,45 @@
+{
+  "name": "@clappr/core",
+  "version": "0.18.0",
+  "description": "Core components of the extensible media player for the web",
+  "main": "./dist/clappr-core.js",
+  "module": "./dist/clappr-core.esm.js",
+  "types": "./types/main.d.ts",
+  "scripts": {
+    "bundle-check": "ANALYZE_BUNDLE=true vite build",
+    "release": "rm -rf dist && vite build && vite build --mode minify && tsc",
+    "build": "vite build && tsc",
+    "watch": "vite build --watch",
+    "test": "vitest run --coverage",
+    "test:smoke": "vitest run src/dist.smoke.test.js",
+    "test:coverage": "open coverage/lcov-report/index.html",
+    "test:watch": "vitest",
+    "lint": "eslint --no-error-on-unmatched-pattern *.js src/",
+    "lint:fix": "npm run lint -- --fix",
+    "start": "vite",
+    "prepublishOnly": "lerna run release --scope=@clappr/core"
+  },
+  "files": [
+    "/dist",
+    "/src",
+    "/types"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clappr/clappr.git",
+    "directory": "packages/clappr-core"
+  },
+  "author": "Globo.com",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/clappr/clappr-core/issues"
+  },
+  "homepage": "https://github.com/clappr/clappr-core",
+  "devDependencies": {
+    "@clappr/zepto": "^2.1.5",
+    "typescript": "^5.5.2"
+  }
+}

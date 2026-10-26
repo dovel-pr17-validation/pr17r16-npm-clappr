@@ -1,0 +1,47 @@
+{
+  "name": "@clappr/telemetry",
+  "version": "0.3.8",
+  "description": "Telemetry package for Clappr player",
+  "main": "./dist/clappr-telemetry.js",
+  "module": "./dist/clappr-telemetry.esm.js",
+  "scripts": {
+    "bundle-check": "ANALYZE_BUNDLE=true vite build",
+    "release": "rm -rf dist && vite build && vite build --config vite.es.config.mjs && vite build --mode minify",
+    "build": "vite build && vite build --config vite.es.config.mjs",
+    "watch": "vite build --watch",
+    "test": "vitest run --coverage",
+    "test:smoke": "vitest run src/dist.smoke.test.js",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:open": "open coverage/lcov-report/index.html",
+    "test:watch": "vitest",
+    "lint": "eslint --no-error-on-unmatched-pattern *.js src/",
+    "lint:fix": "yarn lint -- --fix",
+    "start": "vite",
+    "dev": "vite",
+    "prepublishOnly": "lerna run release --scope=@clappr/telemetry"
+  },
+  "files": [
+    "/dist",
+    "/src"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clappr/clappr.git",
+    "directory": "packages/clappr-telemetry"
+  },
+  "author": "Globo.com",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/clappr/clappr/issues"
+  },
+  "homepage": "https://github.com/clappr/clappr/tree/main/packages/clappr-telemetry",
+  "peerDependencies": {
+    "@clappr/core": "*"
+  },
+  "devDependencies": {
+    "@clappr/core": "^0.18.0"
+  }
+}

@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  # Escape hatch when main tip has no CI run (e.g. a past [skip ci] commit).
+  # Manual dispatch still runs the full suite on that SHA; Release then sees success.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: install node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'yarn'
+
+      - name: install dependencies
+        run: yarn --frozen-lockfile
+
+      - name: run lint
+        run: yarn lint
+
+      - name: run knip
+        run: yarn knip
+
+      - name: run unit tests
+        run: yarn test
+
+      - name: build
+        run: yarn build
+
+      - name: build dist
+        run: yarn build:dist
+
+      - name: run dist smoke tests
+        run: yarn test:smoke

@@ -1,0 +1,202 @@
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Clappr Telemetry</title>
+  <script src="j/editor/ace.js"></script>
+  <link rel="stylesheet" href="stylesheets/bootstrap.min.css" type="text/css" media="screen">
+  <link rel="stylesheet" href="stylesheets/bootstrap-theme.min.css" type="text/css" media="screen">
+  <link rel="stylesheet" href="stylesheets/style.css" type="text/css" media="screen">
+  <style>
+    .presets { margin-bottom: 8px; }
+    .presets .btn { margin-right: 4px; }
+    #player-wrapper { min-width: 640px; min-height: 360px; }
+    #output { margin-top: 20px; }
+    .actions { margin-top: 8px; display: flex; gap: 6px; align-items: flex-start; }
+    .actions .run { display: inline-block; float: none; margin: 0; }
+  </style>
+</head>
+
+<body>
+  <header class="header">
+    <span>Clappr Telemetry</span>
+    <ul>
+      <li>
+        <a href="https://github.com/clappr/clappr/blob/main/packages/clappr-telemetry/README.md">docs</a>
+      </li>
+    </ul>
+  </header>
+  <section class="container">
+    <div class="main">
+      <div id="output">
+        <div id="player-wrapper" class="player"></div>
+      </div>
+    </div>
+    <div class="sidebar">
+      <div class="presets">
+        <select id="media-select" class="form-control input-sm" onchange="selectMedia(this.value)"></select>
+      </div>
+      <div id="editor"></div>
+      <div class="actions">
+        <button class="run btn btn-primary">Run</button>
+        <button class="btn btn-default" onclick="snapshot()">Snapshot</button>
+      </div>
+      <div id="console"></div>
+    </div>
+  </section>
+
+  <script type="module">
+    import ClapprNS from '../player/src/main.js'
+    import HlsjsPlayback from '../hlsjs-playback/src/hls.js'
+    import DashShakaPlayback from '../dash-shaka-playback/src/clappr-dash-shaka-playback.js'
+    import ClapprTelemetryNS from '/src/main.umd.js'
+
+    window.Clappr = ClapprNS.default || ClapprNS
+    window.HlsjsPlayback = HlsjsPlayback.default || HlsjsPlayback
+    window.DashShakaPlayback = DashShakaPlayback.default || DashShakaPlayback
+    window.ClapprTelemetry = ClapprTelemetryNS.default || ClapprTelemetryNS
+
+    const {
+      ShakaNetworkAdapter, HlsNetworkAdapter,
+      BufferSampler, DecodingSampler, PlaybackStateSampler,
+      NetworkSampler, PlaybackTimingSampler, StreamInfoSampler,
+      VideoEventObserver
+    } = window.ClapprTelemetry
+
+    const TELEMETRY_TRACE_EVENT = Clappr.Events.Custom.CONTAINER_TELEMETRY_TRACE
+
+    class SimpleTelemetryLogger extends Clappr.ContainerPlugin {
+      get name() { return 'simple_telemetry_logger' }
+      get supportedVersion() { return { min: '0.13.1' } }
+      bindEvents() {
+        this.listenTo(this.container, TELEMETRY_TRACE_EVENT, (e) => console.log('[TELEMETRY]', e))
+      }
+    }
+
+    window.SimpleTelemetryLogger = SimpleTelemetryLogger
+    window.selectMedia = selectMedia
+    window.snapshot = snapshot
+
+    const SAMPLERS = `[BufferSampler, DecodingSampler, PlaybackStateSampler,
+                NetworkSampler, PlaybackTimingSampler, StreamInfoSampler]`
+    const OBSERVERS = `[VideoEventObserver]`
+    const INTERVAL = `// enabled: false,        // set to false to disable all telemetry
+    // sampleIntervalMs: 1000, // set interval in ms to enable periodic sampling`
+
+    const MEDIAS = {
+      hls: {
+        label: 'HLS.js',
+        code: `window.player = new Clappr.Player({
+  parentId: '#player-wrapper',
+  source: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
+  width: 640, height: 360, muted: true,
+  plugins: [HlsjsPlayback, ClapprTelemetry, SimpleTelemetryLogger],
+  telemetry: {
+    adapters:  [HlsNetworkAdapter],
+    samplers:  ${SAMPLERS},
+    observers: ${OBSERVERS},
+    ${INTERVAL}
+  }
+})`
+      },
+      shaka: {
+        label: 'Shaka DASH',
+        code: `window.player = new Clappr.Player({
+  parentId: '#player-wrapper',
+  source: 'https://storage.googleapis.com/shaka-demo-assets/angel-one/dash.mpd',
+  width: 640, height: 360, muted: true,
+  plugins: [DashShakaPlayback, ClapprTelemetry, SimpleTelemetryLogger],
+  telemetry: {
+    adapters:  [ShakaNetworkAdapter],
+    samplers:  ${SAMPLERS},
+    observers: ${OBSERVERS},
+    ${INTERVAL}
+  }
+})`
+      },
+      widevine: {
+        label: 'Shaka DASH + Widevine',
+        code: `window.player = new Clappr.Player({
+  parentId: '#player-wrapper',
+  source: 'https://storage.googleapis.com/shaka-demo-assets/sintel-widevine/dash.mpd',
+  width: 640, height: 360, muted: true,
+  plugins: [DashShakaPlayback, ClapprTelemetry, SimpleTelemetryLogger],
+  shakaConfiguration: {
+    drm: { servers: { 'com.widevine.alpha': 'https://cwip-shaka-proxy.appspot.com/no_auth' } }
+  },
+  telemetry: {
+    adapters:  [ShakaNetworkAdapter],
+    samplers:  ${SAMPLERS},
+    observers: ${OBSERVERS},
+    ${INTERVAL}
+  }
+})`
+      },
+      html5: {
+        label: 'HTML5 Video',
+        code: `window.player = new Clappr.Player({
+  parentId: '#player-wrapper',
+  source: 'http://clappr.io/highline.mp4',
+  width: 640, height: 360, muted: true,
+  plugins: [Clappr.HTML5Video, ClapprTelemetry, SimpleTelemetryLogger],
+  telemetry: {
+    samplers:  [BufferSampler, DecodingSampler, PlaybackStateSampler, PlaybackTimingSampler],
+    observers: ${OBSERVERS},
+    ${INTERVAL}
+  }
+})`
+      },
+    }
+
+    var editor
+
+    function selectMedia(key) {
+      const media = MEDIAS[key] ?? MEDIAS.hls
+      editor.getSession().setValue(media.code)
+      run()
+    }
+
+    function snapshot() {
+      if (!window.player) return
+      const container = window.player.core.getCurrentContainer()
+      const plugin = container.getPlugin('telemetry')
+      const data = plugin?.snapshot ?? {}
+      console.log('[SNAPSHOT]', data)
+    }
+
+    function run() {
+      const code = editor.getSession().getValue()
+      if (window.player) {
+        window.player.destroy()
+        window.player = null
+      }
+      try {
+        eval(code)
+        document.getElementById('console').textContent = ''
+      } catch (err) {
+        document.getElementById('console').textContent = err.message
+      }
+    }
+
+    const select = document.getElementById('media-select')
+    Object.entries(MEDIAS).forEach(([key, { label }]) => {
+      const opt = document.createElement('option')
+      opt.value = key
+      opt.textContent = label
+      select.appendChild(opt)
+    })
+
+    editor = ace.edit('editor')
+    const session = editor.getSession()
+    editor.setTheme('ace/theme/katzenmilch')
+    session.setMode('ace/mode/javascript')
+    session.setTabSize(2)
+    session.setUseSoftTabs(true)
+    editor.getSession().setValue(MEDIAS.hls.code)
+
+    document.querySelector('.run').addEventListener('click', run)
+    run()
+  </script>
+</body>
+
+</html>
